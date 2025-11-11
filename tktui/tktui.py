@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 import curses
 
-from tktui.base import TkTuiBase
 from tktui.widget import Widget
 from tktui.ctx import _set_app
 from tktui.colors import Colors
@@ -43,10 +42,11 @@ class TkTui:
         self._root= Frame(self, tktui_stdscr = self.stdscr)
         self._root.draw()
 
-        curses.curs_set(1)
+        curses.curs_set(0)
 
         # defaults
         # self.stdscr.nodelay(True)
+        # self.stdscr.keypad(True)
         curses.cbreak()
         curses.noecho()
         curses.flushinp()
@@ -97,14 +97,14 @@ class TkTui:
         registered for the event and calling their callback function.
         """
         (_, x, y, _, bstate) = curses.getmouse()
-        self.cur_window.win.move(y, x)
+        self.cur_window.box.win.move(y, x)
         event = MouseEvent(x, y, bstate)
 
         widgets_containing_mouse: list[tuple[Widget, EventCallBackAndArgs]] = []
         if bstate & curses.BUTTON1_CLICKED:
             for widget, callback_and_args in self.__subs_for_mouse_event.items():
                 # find all the widgets that enclose the location of the mouse event
-                if widget.win.enclose(y, x):
+                if widget.box.win.enclose(y, x):
                     widgets_containing_mouse.append((widget, callback_and_args))
 
 
@@ -137,13 +137,13 @@ class TkTui:
         """Handle the key inputs by findings all the widgets that enclose the cursor that have
         registered for the event and calling their callback function.
         """
-        y, x = self._root.win.getyx()
+        y, x = self._root.box.win.getyx()
         event = KeyEvent(x, y, char)
 
         widgets_containing_cursor: list[tuple[Widget, EventCallBackAndArgs]] = []
 
         for widget, callback_and_args in self.__subs_for_key_event.items():
-            if widget.win.enclose(y, x):
+            if widget.box.win.enclose(y, x):
                 widgets_containing_cursor.append((widget, callback_and_args))
 
         if not widgets_containing_cursor:
@@ -163,7 +163,7 @@ class TkTui:
 
     def exit(self) -> None:
         curses.nocbreak()
-        self._root.win.keypad(False)
+        self._root.box.win.keypad(False)
         curses.echo()
         curses.endwin()
         curses.flushinp()
@@ -172,8 +172,11 @@ class TkTui:
 
     def mainloop(self) -> None:
         self._running = True
+        self.stdscr.refresh()
+
         while self._running:
-            char = self.cur_window.win.getch()
+            char = self.cur_window.box.win.getch()
+
             if char == -1:
                 continue
 
@@ -184,11 +187,11 @@ class TkTui:
                 if char == curses.KEY_MOUSE:
                     self.mouse_event()
                 else:
-                    # self._root.win.addch(chr(char))
+                    self._root.box.win.addch(chr(char)) # for testing if they keys are being registered
                     self.key_event(char)
 
                 # important for updating the screen at the end of the loop
-                self.cur_window.win.refresh()
+                self.cur_window.box.win.refresh()
 
 
             # clears the screen but keeps the windows

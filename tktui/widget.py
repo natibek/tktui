@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from tktui.ctx import get_app
 from tktui.base import BorderPos
 from tktui.frame import Frame
+from tktui.box import Box
 
 if TYPE_CHECKING:
     from tktui.tktui import TkTui
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 # 4: Scrolling containers
 # 4: Custom widgets: switch, button, label, static, textarea, list, checkbox, h/v lines
 
-class Box:
+class Widget:
     """Defines what it is to occupy space on a screen."""
     def __init__(
         self,
@@ -37,121 +38,34 @@ class Box:
         else:
             self.parent = parent._root
 
-        self.parent_win = self.parent.win
+        self.parent_win = self.parent.box.win
         self.z_index = self.parent.z_index + 1
 
         assert isinstance(self.parent_win, curses.window)
-        self.x = x
-        self.y = y
-        self.height = height or self.parent_win.getmaxyx()[0]
-        self.width = width or self.parent_win.getmaxyx()[1]
+        self.box = Box(
+            self.parent_win,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            border=border,
+            border_title=border_title,
+            border_pos=border_pos
+        )
+
 
         self.app = get_app()
 
-        self.win = self.parent_win.derwin(self.height, self.width, self.y, self.x)
-        self.focus_bkgd = self.app.colors["WHITE_BLUE"]
-        self.default_bkgd = self.app.colors["WHITE_GREEN"]
-
-        self.win.bkgd(" ", self.default_bkgd)
-
-        # for mouse presses
-        self.win.keypad(True)
-        self.win.nodelay(True)
-
-    def remove_border(self) -> None:
-        """Remove the border around the box"""
-        self.win.border(1,1,1,1,1,1,1,1)
-
-    def add_border(self) -> None:
-        """Add the border around the box"""
-        self.win.border(0,0,0,0,0,0,0,0)
-
-
-    @property
-    def border(self) -> bool:
-        return self._border
-
-    @border.setter
-    def border(self, border: bool) -> None:
-        if border:
-            self._border = True
-            self.add_border()
-            # self.win.box()
-        else:
-            self._border = False
-            self.remove_border()
-
-
-    def update_border_title(self, title: str, border_pos: BorderPos | None = None) -> None:
-        """Write the border title."""
-        # TODO: Include position arguments
-        X_OFFSET = 3
-        self.border_title = title
-
-        if border_pos:
-            self.border_pos = border_pos
-
-        if not title:
-            return
-
-        if self.border_pos.value % 2 == 0:
-            y = 0
-        else:
-            y = self.height - 1
-
-        match self.border_pos:
-            case BorderPos.TOP_LEFT | BorderPos.BOTTOM_LEFT:
-                x = X_OFFSET
-            case BorderPos.TOP_RIGHT | BorderPos.BOTTOM_RIGHT:
-                x = max(0, self.width - X_OFFSET - len(title))
-            case BorderPos.TOP_CENTER | BorderPos.BOTTOM_CENTER:
-                x = max(0, (self.width // 2)  - (len(title) // 2))
-
-        if len(title) >= self.width - x:
-            title = title[:self.width - x]
-        self.win.addstr(y, x, title)
-
-    def draw(self) -> None:
-        self.win.refresh()
-
-class Widget(Box):
-    """Interactive Box"""
-
-    def __init__(
-        self,
-        parent: Frame | TkTui,
-        x: int,
-        y: int,
-        height: int | None = None,
-        width: int | None = None,
-        border: bool = True,
-        border_title: str = "",
-        border_pos: BorderPos = BorderPos.TOP_LEFT,
-        **kwargs
-    ) -> None:
-        super().__init__(parent, x, y, height, width, border, border_title, border_pos, **kwargs)
-
-        self.border = border
-        self.border_pos = border_pos
-        self.update_border_title(border_title)
-
         self.focusable = True
-
-        # This will help with widgets for which it doesn't make sense for events to propagate
-        # eg Buttons for mouse event
         self.propagates_mouse_event = True
         self.propagates_key_event = True
 
+    def draw(self) -> None:
+        self.box.win.refresh()
+
     def focus(self) -> None:
         if self.focusable:
-            self.win.bkgd(" ", self.focus_bkgd)
+            self.box.win.bkgd(" ", self.box.focus_bkgd)
 
     def defocus(self) -> None:
-        self.win.bkgd(" ", self.default_bkgd)
-
-    # def update_text(self, txt: str) -> None:
-    #     if not txt:
-    #         return
-
-    #     self.win.addstr(txt)
-
+        self.box.win.bkgd(" ", self.box.default_bkgd)
