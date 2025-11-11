@@ -1,54 +1,51 @@
 from __future__ import annotations
-import curses
-
 from typing import TYPE_CHECKING
+
+import curses
 from tktui.ctx import get_app
-from tktui.base import BorderPos
-from tktui.frame import Frame
+from tktui.base import BorderPos, FrameBase
 
 if TYPE_CHECKING:
     from tktui.tktui import TkTui
+    from tktui.widget import Widget
 
-# TODO:
-# 1: Padding and Marging
-# 2: Redraw on screen resize
-# 3: Container widgets with tkinter style packing
-# 4: Scrolling containers
-# 4: Custom widgets: switch, button, label, static, textarea, list, checkbox, h/v lines
-
-class Box:
+class Frame: #(FrameBase):
     """Defines what it is to occupy space on a screen."""
     def __init__(
         self,
         parent: Frame | TkTui,
-        x: int,
-        y: int,
-        height: int | None = None,
-        width: int | None = None,
-        border: bool = True,
-        border_title: str = "",
-        border_pos: BorderPos = BorderPos.TOP_LEFT,
+        #border: bool = True,
+        #border_title: str = "",
+        #border_pos: BorderPos = BorderPos.TOP_LEFT,
         # padding: tuple[int, int] = (0, 0),
         **kwargs
     ) -> None:
 
+
         if isinstance(parent, Frame):
             self.parent = parent
+            self.parent_win = parent.win
+            self.z_index = parent.z_index + 1
         else:
-            self.parent = parent._root
+            self.z_index = 1
+            if hasattr(parent, "_root"):
+                # the _root frame for the app has been created yet
+                self.parent = parent._root
+                self.parent_win = parent._root.win
+            else:
+                assert "tktui_stdscr" in kwargs
+                win = kwargs["tktui_stdscr"]
+                assert isinstance(win, curses.window)
+                self.parent_win = win
+                self.parent = None
 
-        self.parent_win = self.parent.win
-        self.z_index = self.parent.z_index + 1
 
         assert isinstance(self.parent_win, curses.window)
-        self.x = x
-        self.y = y
-        self.height = height or self.parent_win.getmaxyx()[0]
-        self.width = width or self.parent_win.getmaxyx()[1]
+        self.height = self.parent_win.getmaxyx()[0]
+        self.width = self.parent_win.getmaxyx()[1]
 
         self.app = get_app()
-
-        self.win = self.parent_win.derwin(self.height, self.width, self.y, self.x)
+        self.win = self.parent_win.derwin(self.height, self.width, 0, 0)
         self.focus_bkgd = self.app.colors["WHITE_BLUE"]
         self.default_bkgd = self.app.colors["WHITE_GREEN"]
 
@@ -57,6 +54,9 @@ class Box:
         # for mouse presses
         self.win.keypad(True)
         self.win.nodelay(True)
+
+        # list of the child Frames and Widgets
+        self.children: list[Widget] = []
 
     def remove_border(self) -> None:
         """Remove the border around the box"""
@@ -113,45 +113,3 @@ class Box:
 
     def draw(self) -> None:
         self.win.refresh()
-
-class Widget(Box):
-    """Interactive Box"""
-
-    def __init__(
-        self,
-        parent: Frame | TkTui,
-        x: int,
-        y: int,
-        height: int | None = None,
-        width: int | None = None,
-        border: bool = True,
-        border_title: str = "",
-        border_pos: BorderPos = BorderPos.TOP_LEFT,
-        **kwargs
-    ) -> None:
-        super().__init__(parent, x, y, height, width, border, border_title, border_pos, **kwargs)
-
-        self.border = border
-        self.border_pos = border_pos
-        self.update_border_title(border_title)
-
-        self.focusable = True
-
-        # This will help with widgets for which it doesn't make sense for events to propagate
-        # eg Buttons for mouse event
-        self.propagates_mouse_event = True
-        self.propagates_key_event = True
-
-    def focus(self) -> None:
-        if self.focusable:
-            self.win.bkgd(" ", self.focus_bkgd)
-
-    def defocus(self) -> None:
-        self.win.bkgd(" ", self.default_bkgd)
-
-    # def update_text(self, txt: str) -> None:
-    #     if not txt:
-    #         return
-
-    #     self.win.addstr(txt)
-

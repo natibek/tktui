@@ -1,13 +1,13 @@
-from loni.widget import Widget, Box, BorderPos
-from loni.widgets.utils import calculate_text_size
-from loni.ctx import get_app
+from tktui.widget import Widget, Box, BorderPos
+from tktui.widgets.utils import calculate_text_size
+from tktui.ctx import get_app
 
 # TODO: 9 alignment options for text as well as padding/margin
 
 class Label(Widget):
     def __init__(
         self,
-        parent: Box,
+        parent:
         x: int,
         y: int,
         height: int | None = None,
