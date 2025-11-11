@@ -9,6 +9,8 @@ from tktui.colors import Colors
 from tktui.events import MouseEvent, KeyEvent
 from tktui.frame import Frame
 
+import time
+
 if TYPE_CHECKING:
     from .events import EventHandlerType
     EventCallBackAndArgs = tuple[EventHandlerType | None, tuple[Any, ...], dict[str, Any]]
@@ -42,11 +44,12 @@ class TkTui:
         self._root= Frame(self, tktui_stdscr = self.stdscr)
         self._root.draw()
 
+        # don't show cursor
         curses.curs_set(0)
 
-        # defaults
         # self.stdscr.nodelay(True)
         # self.stdscr.keypad(True)
+        # defaults
         curses.cbreak()
         curses.noecho()
         curses.flushinp()
@@ -63,15 +66,27 @@ class TkTui:
         return self._in_focus
 
     @in_focus.setter
-    def in_focus(self, widget: Widget) -> None:
+    def in_focus(self, widget: Widget | None) -> None:
+        if not widget:
+            if self._in_focus:
+                self._in_focus.defocus()
+
+            self._in_focus = None
+
+            return
+
         if not widget.focusable:
             return
 
         if self._in_focus:
             self._in_focus.defocus()
 
-        self._in_focus = widget
-        widget.focus()
+        # if it is the same widget, just defocus
+        if self._in_focus == widget:
+            self._in_focus = None
+        else:
+            self._in_focus = widget
+            widget.focus()
 
     def register_for_mouse_event(
         self,
@@ -161,13 +176,14 @@ class TkTui:
                     event.stop()
 
 
-    def exit(self) -> None:
-        curses.nocbreak()
+    def restore_shell(self) -> None:
         self._root.box.win.keypad(False)
+        curses.nocbreak()
         curses.echo()
         curses.endwin()
         curses.flushinp()
 
+    def exit(self):
         self._running= False
 
     def mainloop(self) -> None:
@@ -181,19 +197,18 @@ class TkTui:
                 continue
 
             if "q" == chr(char):
-                self.exit()
-                # break
+                break
+
+            if char == curses.KEY_MOUSE:
+                self.mouse_event()
             else:
-                if char == curses.KEY_MOUSE:
-                    self.mouse_event()
-                else:
-                    self._root.box.win.addch(chr(char)) # for testing if they keys are being registered
-                    self.key_event(char)
+                self._root.box.win.addch(chr(char)) # for testing if they keys are being registered
+                self.key_event(char)
 
-                # important for updating the screen at the end of the loop
-                self.cur_window.box.win.refresh()
+            # important for updating the screen at the end of the loop
+            self.cur_window.box.win.refresh()
 
-
+        self.restore_shell()
             # clears the screen but keeps the windows
             # self.cur_window.win.erase()
 

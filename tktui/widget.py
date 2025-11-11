@@ -53,7 +53,6 @@ class Widget:
             border_pos=border_pos
         )
 
-
         self.app = get_app()
 
         self.focusable = True
@@ -66,6 +65,8 @@ class Widget:
     def focus(self) -> None:
         if self.focusable:
             self.box.win.bkgd(" ", self.box.focus_bkgd)
+            self.draw()
 
     def defocus(self) -> None:
         self.box.win.bkgd(" ", self.box.default_bkgd)
+        self.draw()

@@ -35,7 +35,6 @@ class Box:
         self.win.nodelay(True)
 
         # list of the child Frames and Widgets
-
         self.border = border
         self.update_border_title(border_title, border_pos=border_pos)
 
