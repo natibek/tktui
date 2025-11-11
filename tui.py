@@ -19,9 +19,7 @@ def handle_key(event: KeyEvent) -> None:
 def main() -> None:
     root = TkTui()
     try:
-        frame = Frame(root)
-        frame.border = True
-        frame.update_border_title("HOME", BorderPos.TOP_CENTER)
+        frame = Frame(root, border=True, border_title="Home", border_pos=BorderPos.TOP_CENTER)
 
         # box = Widget(root, 10, 10, 20, 20)
         # app.register_for_mouse_event(box, do_nothing)
