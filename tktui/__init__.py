@@ -2,6 +2,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 
-from .loni import LoniApp
+from .tktui import TkTui, Frame
 
-__all__ = ["LoniApp", "get_app"]
+__all__ = ["TkTui", "Frame"]

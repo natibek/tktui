@@ -1,35 +1,140 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 import curses
 
-from loni.widget import Widget
-from loni.ctx import _set_app
-from loni.colors import Colors
-from loni.events import MouseEvent, KeyEvent
+from tktui.base import TkTuiBase, WidgetBase, FrameBase, BorderPos
+from tktui.widget import Widget
+from tktui.ctx import _set_app, get_app
+from tktui.colors import Colors
+from tktui.events import MouseEvent, KeyEvent
 
 if TYPE_CHECKING:
     from .events import EventHandlerType
     EventCallBackAndArgs = tuple[EventHandlerType | None, tuple[Any, ...], dict[str, Any]]
 
-class LoniApp:
-    __subs_for_mouse_event: dict[Widget, EventCallBackAndArgs] = {}
-    __subs_for_key_event: dict[Widget, EventCallBackAndArgs] = {}
+class Frame(FrameBase):
+    """Defines what it is to occupy space on a screen."""
+    __num_roots: int = 0
+    def __init__(
+        self,
+        parent: Frame | TkTui | None,
+        #border: bool = True,
+        #border_title: str = "",
+        #border_pos: BorderPos = BorderPos.TOP_LEFT,
+        # padding: tuple[int, int] = (0, 0),
+        **kwargs
+    ) -> None:
 
-    __allow_direct_init = False
-    __inst: LoniApp | None = None
+        self.parent = parent
 
-    def __new__(cls) -> LoniApp:
-        if not cls.__allow_direct_init:
-            raise Exception("Use `LoniApp.create_app()` to create the app.")
+        if not parent: # we are creating the root box
+            if self.__num_roots != 0:
+                raise ValueError("Can not create more than one root Frame. Pass the parent as an argument.")
 
+            self.__num_roots += 1
+            # Expect that curses.initscr() has been called and the resulting screen is passed as
+            # a keyword argument.
+            assert "stdscr" in kwargs and isinstance(kwargs["stdscr"], curses.window)
+            self.parent_win: curses.window = kwargs["stdscr"]
+            self.parent_win.clear()
+            self.z_index = 0
+        elif isinstance(parent, TkTui):
+            self.parent_win = parent.root.win
+            self.z_index = 1
+        else:
+            self.parent_win = parent.win
+            self.z_index = parent.z_index + 1
+
+        assert isinstance(self.parent_win, curses.window)
+        self.height = self.parent_win.getmaxyx()[0]
+        self.width = self.parent_win.getmaxyx()[1]
+
+        self.app = get_app()
+        self.win = self.parent_win.derwin(self.height, self.width, 0, 0)
+        self.focus_bkgd = self.app.colors["WHITE_BLUE"]
+        self.default_bkgd = self.app.colors["WHITE_GREEN"]
+
+        self.win.bkgd(" ", self.default_bkgd)
+
+        # for mouse presses
+        self.win.keypad(True)
+        self.win.nodelay(True)
+
+        # list of the child Frames and Widgets
+        self.children = []
+
+    def remove_border(self) -> None:
+        """Remove the border around the box"""
+        self.win.border(1,1,1,1,1,1,1,1)
+
+    def add_border(self) -> None:
+        """Add the border around the box"""
+        self.win.border(0,0,0,0,0,0,0,0)
+
+
+    @property
+    def border(self) -> bool:
+        return self._border
+
+    @border.setter
+    def border(self, border: bool) -> None:
+        if border:
+            self._border = True
+            self.add_border()
+            # self.win.box()
+        else:
+            self._border = False
+            self.remove_border()
+
+
+    def update_border_title(self, title: str, border_pos: BorderPos | None = None) -> None:
+        """Write the border title."""
+        # TODO: Include position arguments
+        X_OFFSET = 3
+        self.border_title = title
+
+        if border_pos:
+            self.border_pos = border_pos
+
+        if not title:
+            return
+
+        if self.border_pos.value % 2 == 0:
+            y = 0
+        else:
+            y = self.height - 1
+
+        match self.border_pos:
+            case BorderPos.TOP_LEFT | BorderPos.BOTTOM_LEFT:
+                x = X_OFFSET
+            case BorderPos.TOP_RIGHT | BorderPos.BOTTOM_RIGHT:
+                x = max(0, self.width - X_OFFSET - len(title))
+            case BorderPos.TOP_CENTER | BorderPos.BOTTOM_CENTER:
+                x = max(0, (self.width // 2)  - (len(title) // 2))
+
+        if len(title) >= self.width - x:
+            title = title[:self.width - x]
+        self.win.addstr(y, x, title)
+
+    def draw(self) -> None:
+        self.win.refresh()
+
+class TkTui(TkTuiBase):
+    __subs_for_mouse_event: dict[WidgetBase, EventCallBackAndArgs] = {}
+    __subs_for_key_event: dict[WidgetBase, EventCallBackAndArgs] = {}
+
+    __inst: TkTui | None = None
+
+    def __new__(cls) -> TkTui:
         if cls.__inst is None:
-            app = super().__new__(cls)
+            app = cast(TkTui, super().__new__(cls))
+            cls.__inst = app
+            # update the global context with a new TkTui
+            _set_app(app)
         else:
             app = cls.__inst
 
-        # update the global context with a new LoniApp
-        _set_app(app)
 
         return app
 
@@ -40,7 +145,7 @@ class LoniApp:
         self.colors = Colors()
         self.colors._generate_defaults()
 
-        self.root= Widget(None, 0, 0, stdscr = self.stdscr)
+        self.root= Frame(None, 0, 0, stdscr = self.stdscr)
         self.root.draw()
 
         curses.curs_set(1)
@@ -58,19 +163,12 @@ class LoniApp:
         self.register_for_mouse_event(self.root)
         self._in_focus = None
 
-    @classmethod
-    def create_app(cls) -> tuple[LoniApp, Widget]:
-        cls.__allow_direct_init = True
-        app = cls()
-        cls.__allow_direct_init = False
-        return app, app.root
-
     @property
-    def in_focus(self) -> Widget | None:
+    def in_focus(self) -> WidgetBase | None:
         return self._in_focus
 
     @in_focus.setter
-    def in_focus(self, widget: Widget) -> None:
+    def in_focus(self, widget: WidgetBase) -> None:
         if not widget.focusable:
             return
 
@@ -82,7 +180,7 @@ class LoniApp:
 
     def register_for_mouse_event(
         self,
-        widget: Widget,
+        widget: WidgetBase,
         callback: EventHandlerType | None = None,
         args: tuple[Any, ...] = tuple(),
         kwargs: dict[str, Any] = {},
@@ -92,7 +190,7 @@ class LoniApp:
 
     def register_for_key_event(
         self,
-        widget: Widget,
+        widget: WidgetBase,
         callback: EventHandlerType | None = None,
         args: tuple[Any, ...] = tuple(),
         kwargs: dict[str, Any] = {},
@@ -120,7 +218,7 @@ class LoniApp:
 
         # sort the widgets by their depth in reverse order
         # TODO: handle overlapping widgets
-        widgets_containing_mouse.sort(key=lambda tup: tup[0].depth, reverse=True)
+        widgets_containing_mouse.sort(key=lambda tup: tup[0].z_index, reverse=True)
 
         focused = False
         for widget, callback_and_args in widgets_containing_mouse:
@@ -156,7 +254,7 @@ class LoniApp:
         if not widgets_containing_cursor:
             return
 
-        widgets_containing_cursor.sort(key=lambda tup: tup[0].depth, reverse=True)
+        widgets_containing_cursor.sort(key=lambda tup: tup[0].z_index, reverse=True)
         for widget, callback_and_args in widgets_containing_cursor:
             if not event.stop_propagation:
                 event.widget = widget
@@ -177,7 +275,7 @@ class LoniApp:
 
         self._running= False
 
-    def event_loop(self) -> None:
+    def mainloop(self) -> None:
         self._running = True
         while self._running:
             char = self.cur_window.win.getch()

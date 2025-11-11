@@ -3,17 +3,8 @@ import curses
 
 import enum
 
-from loni.ctx import get_app
-
-# maybe use strings
-class BorderPos(enum.Enum):
-    TOP_LEFT     = 0
-    BOTTOM_LEFT  = 1
-    TOP_CENTER   = 2
-    BOTTOM_CENTER= 3
-    TOP_RIGHT    = 4
-    BOTTOM_RIGHT = 5
-
+from tktui.ctx import get_app
+from tktui.base import BorderPos
 
 # TODO:
 # 1: Padding and Marging
