@@ -6,9 +6,11 @@ from tktui.ctx import get_app
 from tktui.base import BorderPos
 from tktui.frame import Frame
 from tktui.box import Box
+from tktui.geometry import PackInfo
 
 if TYPE_CHECKING:
     from tktui.tktui import TkTui
+    from tktui.geometry import Side, Anchor, Fill
 
 # TODO:
 # 1: Padding and Marging
@@ -58,6 +60,46 @@ class Widget:
         self.focusable = True
         self.propagates_mouse_event = True
         self.propagates_key_event = True
+
+        self.__pack_info: PackInfo | None = None
+
+    def pack(
+        self,
+        after: Widget | Frame | None = None,
+        before: Widget | Frame | None = None,
+        side: Side | str = Side.TOP,
+        expand: bool = False,
+        fill: Fill | str = Fill.NONE,
+        ipadx: int = 0,
+        ipady: int = 0,
+        padx: int = 0,
+        pady: int = 0,
+        anchor: Anchor | str = Anchor.NW,
+        in_: Frame | None = None,
+    ) -> None:
+
+        if in_:
+            parent = in_
+        else:
+            parent = self.parent
+
+        self.__pack_info = PackInfo(
+            side=side,
+            expand=expand,
+            fill=fill,
+            ipadx=ipadx,
+            ipady=ipady,
+            padx=padx,
+            pady=pady,
+            anchor=anchor,
+        )
+
+        parent.pack_child(
+            self,
+            after,
+            before,
+        )
+
 
     def draw(self) -> None:
         self.box.win.refresh()

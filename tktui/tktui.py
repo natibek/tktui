@@ -9,8 +9,6 @@ from tktui.colors import Colors
 from tktui.events import MouseEvent, KeyEvent
 from tktui.frame import Frame
 
-import time
-
 if TYPE_CHECKING:
     from .events import EventHandlerType
     EventCallBackAndArgs = tuple[EventHandlerType | None, tuple[Any, ...], dict[str, Any]]
@@ -185,6 +183,7 @@ class TkTui:
 
     def exit(self):
         self._running= False
+
 
     def mainloop(self) -> None:
         self._running = True
