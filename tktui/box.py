@@ -1,6 +1,18 @@
 import curses
-from tktui.base import BorderPos
 from tktui.ctx import get_app
+from enum import StrEnum
+
+class BorderPos(StrEnum):
+    """Enum for the Anchor attribute."""
+    N = "n"
+    S = "s"
+    NW = "nw"
+    NE = "ne"
+    SW = "sw"
+    SE = "se"
+
+class BorderPosError(Exception):
+    ...
 
 class Box:
     def __init__(
@@ -12,7 +24,7 @@ class Box:
         height: int | None = None,
         border: bool = False,
         border_title: str = "",
-        border_pos: BorderPos = BorderPos.TOP_LEFT,
+        border_pos: BorderPos | str = BorderPos.NW,
         # padding: tuple[int, int] = (0, 0),
     ):
         self.parent_win = parent_window
@@ -62,29 +74,33 @@ class Box:
             self.remove_border()
 
 
-    def update_border_title(self, title: str, border_pos: BorderPos | None = None) -> None:
+    def update_border_title(self, title: str, border_pos: BorderPos | str | None = None) -> None:
         """Write the border title."""
-        # TODO: Include position arguments
-        X_OFFSET = 3
-        self.border_title = title
-
-        if border_pos:
-            self.border_pos = border_pos
-
         if not title:
             return
 
-        if self.border_pos.value % 2 == 0:
+        X_OFFSET = 3
+
+        if border_pos:
+            if not border_pos in set(BorderPos):
+                raise BorderPosError(f"Value for border position {self.border_pos} is not valid.")
+
+            self.border_pos = border_pos
+
+        self.border_title = title
+
+        if self.border_pos.startswith("n"):
             y = 0
         else:
             y = self.height - 1
 
-        match self.border_pos:
-            case BorderPos.TOP_LEFT | BorderPos.BOTTOM_LEFT:
+        match self.border_pos[-1]:
+            case "w":
                 x = X_OFFSET
-            case BorderPos.TOP_RIGHT | BorderPos.BOTTOM_RIGHT:
+            case "e":
                 x = max(0, self.width - X_OFFSET - len(title))
-            case BorderPos.TOP_CENTER | BorderPos.BOTTOM_CENTER:
+            case _:
+                assert self.border_pos in ("n", "s")
                 x = max(0, (self.width // 2)  - (len(title) // 2))
 
         if len(title) >= self.width - x:

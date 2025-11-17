@@ -3,14 +3,13 @@ import curses
 
 from typing import TYPE_CHECKING
 from tktui.ctx import get_app
-from tktui.base import BorderPos
 from tktui.frame import Frame
-from tktui.box import Box
+from tktui.box import Box, BorderPos
 from tktui.geometry import PackInfo
+from tktui.geometry import Side, Anchor, Fill
 
 if TYPE_CHECKING:
     from tktui.tktui import TkTui
-    from tktui.geometry import Side, Anchor, Fill
 
 # TODO:
 # 1: Padding and Marging
@@ -30,7 +29,7 @@ class Widget:
         width: int | None = None,
         border: bool = True,
         border_title: str = "",
-        border_pos: BorderPos = BorderPos.TOP_LEFT,
+        border_pos: BorderPos | str = BorderPos.NE,
         # padding: tuple[int, int] = (0, 0),
         **kwargs
     ) -> None:
@@ -61,7 +60,7 @@ class Widget:
         self.propagates_mouse_event = True
         self.propagates_key_event = True
 
-        self.__pack_info: PackInfo | None = None
+        self.__pack_info: PackInfo = PackInfo()
 
     def pack(
         self,

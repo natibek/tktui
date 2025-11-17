@@ -1,7 +1,8 @@
 from tktui.frame import Frame
 from tktui.tktui import TkTui
-from tktui.widget import BorderPos, Widget
+from tktui.widget import Widget
 from tktui.events import MouseEvent, Event, KeyEvent
+from tktui.box import BorderPos
 # from tktui.widgets.label import Label
 
 def do_nothing(event: Event):
@@ -19,14 +20,14 @@ def handle_key(event: KeyEvent) -> None:
 def main() -> None:
     root = TkTui()
     try:
-        frame = Frame(root, border=True, border_title="Home", border_pos=BorderPos.TOP_CENTER)
+        frame = Frame(root, border=True, border_title="Home", border_pos="n")
 
         # box = Widget(root, 10, 10, 20, 20)
         # app.register_for_mouse_event(box, do_nothing)
         # app.register_for_key_event(box, update_title)
         # box.draw()
 
-        box2 = Widget(root, 20, 10, 20, 20, border_title="Box 2", border_pos=BorderPos.BOTTOM_CENTER)
+        box2 = Widget(root, 20, 10, 20, 20, border_title="Box 2", border_pos="s")
         root.register_for_mouse_event(box2, do_nothing)
 
         # box3 = Widget(box2, 10, 10, 5, 8)

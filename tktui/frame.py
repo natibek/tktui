@@ -3,8 +3,7 @@ from typing import TYPE_CHECKING
 
 import curses
 from tktui.ctx import get_app
-from tktui.base import BorderPos
-from tktui.box import Box
+from tktui.box import Box, BorderPos
 from tktui.geometry import pack_manager, GeometryManager, Side, Fill, Anchor, PackException, GridException, PackInfo
 
 if TYPE_CHECKING:
@@ -18,7 +17,7 @@ class Frame:
         parent: Frame | TkTui,
         border: bool = False,
         border_title: str = "",
-        border_pos: BorderPos = BorderPos.TOP_LEFT,
+        border_pos: BorderPos | str = BorderPos.NW,
         # padding: tuple[int, int] = (0, 0),
         **kwargs
     ) -> None:
@@ -52,7 +51,7 @@ class Frame:
         )
 
         self.geometry_manager: GeometryManager | None = None
-        self.__pack_info: PackInfo | None = None
+        self.__pack_info: PackInfo = PackInfo()
 
 
     def draw(self) -> None:
