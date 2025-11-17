@@ -61,18 +61,24 @@ def pack_manager(parent: Frame) -> None:
 
 
     for el in parent.children:
-        if el.__pack_info.side in ("right", "left"):
+        pack_info = el.__pack_info
+        if pack_info.side in ("left", "right"):
             right_left.append(el)
             # keep track of the number of expandable elements in the frame.
             # The width each can occupy is equal split of the width left from non expanding
             # elements.
-            if el.__pack_info.expand: expand_cnt_rl += 1
-            else: non_expand_width_rl += el.box.width
-        elif el.__pack_info.side in ("top", "bottom"):
+            if pack_info.expand:
+                expand_cnt_rl += 1
+                # no need to account for the internal padding since it will be part of the width
+                non_expand_width_rl += pack_info.padx*2
+            else: non_expand_width_rl += el.box.content_width + pack_info.ipadx*2 + pack_info.padx*2
+        elif pack_info.side in ("top", "bottom"):
             top_bottom.append(el)
             # Same as above, except for height.
-            if el.__pack_info.expand: expand_cnt_tb += 1
-            else: non_expand_height_tb += el.box.height
+            if pack_info.expand:
+                expand_cnt_tb += 1
+                non_expand_height_tb += pack_info.pady*2
+            else: non_expand_height_tb += el.box.content_height + pack_info.ipady*2 + pack_info.pady*2
         else:
             raise
 
@@ -83,7 +89,7 @@ def pack_manager(parent: Frame) -> None:
     else: expand_height_tb = max(0, (parent.box.height - non_expand_height_tb) / expand_cnt_tb)
 
     # keep track of the last value for each direction
-    right, left, top, bottom = 0, parent.box.width, 0, parent.box.height
+    left , right, top, bottom = 0, parent.box.width, 0, parent.box.height
 
     for el in parent.children:
         pack_info = el.__pack_info
@@ -92,44 +98,60 @@ def pack_manager(parent: Frame) -> None:
         fill_vert = fill in ("both", "y")
         # whether the element should fill the available width
         fill_horz = fill in ("both", "x")
-
         # TODO: add checks for resulting side
-        if pack_info.side in ("right", "left"):
-            available_height = bottom - top
-            height = available_height if fill_vert else el.box.height
-            width = expand_width_rl if fill_horz else el.box.width
+        content_width = el.box.width + pack_info.ipadx*2
+        content_height = el.box.height + pack_info.ipady*2
 
+        if pack_info.side in ("left", "right"):
+            available_height = bottom - top
+            height = max(available_height, content_height) if fill_vert else content_height
+            width = max(expand_width_rl, content_width) if fill_horz else content_width
+            # available width is either what it can expand to if expandable or it's own width
+            # with internal padding
+            available_width = width
+
+            # default y and x
+            y = top + pack_info.pady
+            x = left + pack_info.padx if pack_info.side == "left" else right - width - pack_info.padx
             # the x, y position depends on whether we are filling the available height or not and
             # the anchor
-            y = top if pack_info.fill else _pack_get_xy(available_height, el.box.height, pack_info.anchor)
-
-            if fill == Fill.NONE and pack_info.expand:
+            if pack_info.expand and fill != Fill.BOTH:
                 # need to consider the anchor for the x and y position
-                ...
 
+                if fill == Fill.NONE or fill == Fill.X:
+                    # for the y
+                    if pack_info.anchor[0] == "n":
+                        y = top + pack_info.pady
+                    elif pack_info.anchor[0] == "s":
+                        y = top + available_height - height + pack_info.pady
+                    else:
+                        y = top + (available_height // 2)  - (height // 2)
 
-            if pack_info.side == "right":
-                left -= width
-            elif pack_info.side == "left":
-                right += width
+                if fill == Fill.NONE or fill == Fill.Y:
+                    if pack_info.anchor[0] == "w":
+                        x = left if pack_info.side == "left" else right - available_width + width
+                    elif pack_info.anchor[0] == "e":
+                        x = left + available_width - width if pack_info.side == "left" else right - width
+                    else:
+                        if pack_info.side == "left":
+                            x = left + (available_width // 2)  - (width // 2)
+                        else:
+                            x = right - (available_width // 2)  + (width // 2)
 
-        elif pack_info.side in ("top", "bottom"):
-
-            available_width = left - right
-            height = expand_height_tb if fill_vert else el.box.height
-            width = available_width if fill_hozz else el.box.width
-
-            x = _pack_get_xy(available_width, el.box.width, pack_info.anchor)
-
-            if pack_info.side == "top":
-                top += y
-            elif pack_info.side == "bottom":
-                bottom -= height
+            if pack_info.side == "right": right -= width
+            elif pack_info.side == "left": left += width
 
         else:
-            raise
+            assert pack_info.side in ("top", "bottom")
 
-def _pack_get_xy(available_width: float, available_height: float, element_width: float, element_height, anchor: Anchor | str) -> float:
+            available_width = left - right
+            width = available_width if fill_horz else el.box.width
+            available_height = height = expand_height_tb if fill_vert else el.box.height
+
+            if pack_info.side == "top": top += height
+            elif pack_info.side == "bottom": bottom -= height
+
+        el.box.update(x, y, width, height, available_width, available_height)
 
 
 class Sticky(StrEnum):

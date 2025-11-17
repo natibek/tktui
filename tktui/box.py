@@ -28,6 +28,9 @@ class Box:
         # padding: tuple[int, int] = (0, 0),
     ):
         self.parent_win = parent_window
+
+        self.content_width = 10
+        self.content_height = 10
         self.height = height or self.parent_win.getmaxyx()[0]
         self.width = width or self.parent_win.getmaxyx()[1]
 
@@ -106,3 +109,6 @@ class Box:
         if len(title) >= self.width - x:
             title = title[:self.width - x]
         self.win.addstr(y, x, title)
+
+    def update(self, x: float, y: float, width: float, height: float, available_width: float, available_height: float) -> None:
+        ...
