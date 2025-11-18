@@ -59,7 +59,8 @@ def pack_manager(parent: Frame) -> None:
     expand_cnt_rl, expand_cnt_tb = 0, 0
     non_expand_width_rl, non_expand_height_tb = 0, 0
 
-
+    # need to keep track of how much space to leave out for elements of the other sidedness
+    max_height_rl, max_width_tb = 0, 0
     for el in parent.children:
         pack_info = el.__pack_info
         if pack_info.side in ("left", "right"):
@@ -72,6 +73,8 @@ def pack_manager(parent: Frame) -> None:
                 # no need to account for the internal padding since it will be part of the width
                 non_expand_width_rl += pack_info.padx*2
             else: non_expand_width_rl += el.box.content_width + pack_info.ipadx*2 + pack_info.padx*2
+
+            if el.box.content_height > max_height_rl: max_height_rl = el.box.content_height
         elif pack_info.side in ("top", "bottom"):
             top_bottom.append(el)
             # Same as above, except for height.
@@ -79,14 +82,24 @@ def pack_manager(parent: Frame) -> None:
                 expand_cnt_tb += 1
                 non_expand_height_tb += pack_info.pady*2
             else: non_expand_height_tb += el.box.content_height + pack_info.ipady*2 + pack_info.pady*2
+
+            if el.box.content_width > max_width_tb: max_width_tb = el.box.content_width
         else:
             raise
 
+    # TODO: account for padx
     if expand_cnt_rl == 0: expand_width_rl  = 0
-    else: expand_width_rl = max(0, (parent.box.width - non_expand_width_rl) / expand_cnt_rl)
+    else:
+        # account for the width from the elements with side top/bottom
+        non_expand_width_rl += max_width_tb
+        expand_width_rl = max(0, (parent.box.width - non_expand_width_rl) / expand_cnt_rl)
 
+    # TODO: account for pady
     if expand_cnt_tb == 0: expand_height_tb = 0
-    else: expand_height_tb = max(0, (parent.box.height - non_expand_height_tb) / expand_cnt_tb)
+    else:
+        # account for the height from the elements with side right/left
+        non_expand_height_tb += max_height_rl
+        expand_height_tb = max(0, (parent.box.height - non_expand_height_tb) / expand_cnt_tb)
 
     # keep track of the last value for each direction
     left , right, top, bottom = 0, parent.box.width, 0, parent.box.height
@@ -103,6 +116,7 @@ def pack_manager(parent: Frame) -> None:
         content_height = el.box.height + pack_info.ipady*2
 
         if pack_info.side in ("left", "right"):
+            # expand on side left/right makes the element grow horizontally.
             available_height = bottom - top
             height = max(available_height, content_height) if fill_vert else content_height
             width = max(expand_width_rl, content_width) if fill_horz else content_width
