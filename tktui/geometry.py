@@ -71,7 +71,8 @@ def pack_manager(parent: Frame) -> None:
             if pack_info.expand:
                 expand_cnt_rl += 1
                 # no need to account for the internal padding since it will be part of the width
-                non_expand_width_rl += pack_info.padx*2
+                # TODO: account for padx
+                # non_expand_width_rl += pack_info.padx*2
             else: non_expand_width_rl += el.box.content_width + pack_info.ipadx*2 + pack_info.padx*2
 
             if el.box.content_height > max_height_rl: max_height_rl = el.box.content_height
@@ -80,7 +81,8 @@ def pack_manager(parent: Frame) -> None:
             # Same as above, except for height.
             if pack_info.expand:
                 expand_cnt_tb += 1
-                non_expand_height_tb += pack_info.pady*2
+                # TODO: account for pady
+                # non_expand_height_tb += pack_info.pady*2
             else: non_expand_height_tb += el.box.content_height + pack_info.ipady*2 + pack_info.pady*2
 
             if el.box.content_width > max_width_tb: max_width_tb = el.box.content_width
@@ -106,7 +108,7 @@ def pack_manager(parent: Frame) -> None:
 
     for el in parent.children:
         pack_info = el.__pack_info
-        fill = Fill.NONE if not pack_info.expand else pack_info.fill
+        fill = pack_info.fill
         # whether the element should fill the available height
         fill_vert = fill in ("both", "y")
         # whether the element should fill the available width
@@ -116,31 +118,37 @@ def pack_manager(parent: Frame) -> None:
         content_height = el.box.height + pack_info.ipady*2
 
         if pack_info.side in ("left", "right"):
-            # expand on side left/right makes the element grow horizontally.
             available_height = bottom - top
+            # expand has no effect on the height
             height = max(available_height, content_height) if fill_vert else content_height
+            # fill makes the element take up the horizontal space it can expand into
             width = max(expand_width_rl, content_width) if fill_horz else content_width
-            # available width is either what it can expand to if expandable or it's own width
-            # with internal padding
-            available_width = width
+            # expand on side left/right makes the element grow horizontally.
+            # there could be more available space that width if the element does not `fill`
+            # the available width
+            available_width = max(expand_width_rl, content_width) if fill_horz or pack_info.expand else content_width
 
             # default y and x
-            y = top + pack_info.pady
-            x = left + pack_info.padx if pack_info.side == "left" else right - width - pack_info.padx
+            y = top # TODO account for external padding pack_info.pady
+            # x = left + pack_info.padx if pack_info.side == "left" else right - width - pack_info.padx
+            x = left if pack_info.side == "left" else right - width
+
             # the x, y position depends on whether we are filling the available height or not and
             # the anchor
             if pack_info.expand and fill != Fill.BOTH:
                 # need to consider the anchor for the x and y position
 
+                # TODO: Account for pady
                 if fill == Fill.NONE or fill == Fill.X:
                     # for the y
                     if pack_info.anchor[0] == "n":
-                        y = top + pack_info.pady
+                        y = top # + pack_info.pady
                     elif pack_info.anchor[0] == "s":
-                        y = top + available_height - height + pack_info.pady
+                        y = top + available_height - height # + pack_info.pady
                     else:
                         y = top + (available_height // 2)  - (height // 2)
 
+                # TODO: Account for padx
                 if fill == Fill.NONE or fill == Fill.Y:
                     if pack_info.anchor[0] == "w":
                         x = left if pack_info.side == "left" else right - available_width + width
@@ -152,8 +160,8 @@ def pack_manager(parent: Frame) -> None:
                         else:
                             x = right - (available_width // 2)  + (width // 2)
 
-            if pack_info.side == "right": right -= width
-            elif pack_info.side == "left": left += width
+            if pack_info.side == "right": right -= available_width
+            elif pack_info.side == "left": left += available_width
 
         else:
             assert pack_info.side in ("top", "bottom")
